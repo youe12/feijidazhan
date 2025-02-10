@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>飞机大战</title>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
+    color: #00aaff;
+  }
+  .container {
+    text-align: center;
+    max-width: 700px;
+  }
+  #gameCanvas {
+    background: #eee;
+    display: block;
+    border: 4px solid #00aaff;
+    border-radius: 10px;
+    margin-top: 20px;
+  }
+  .controls {
+    position: relative;
+    text-align: center;
+    background: #fff;
+    padding: 20px;
+    border: 2px solid #00aaff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 24px;
+  }
+  .timer, .score {
+    font-weight: bold;
+  }
+  .speedSelect {
+    margin-top: 10px;
+    padding: 5px;
+    font-size: 16px;
+    border: 2px solid #00aaff;
+    border-radius: 5px;
+    background-color: #fff;
+    color: #00aaff;
+  }
+  .startButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #00aaff; /* 恢复原来的填充颜色 */
+    color: #fff;
+    border: 2px solid #003377; /* 增加深色边框 */
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .startButton:hover {
+    background: #0088cc;
+  }
+  .gameOver {
+    color: red;
+    font-size: 24px;
+    margin-top: 20px;
+    display: none;
+  }
+  .rulesCard {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #fff;
+    border: 2px solid #00aaff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    font-size: 18px;
+    color: #00aaff;
+  }
+  .controlButtons {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .controlButton {
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #00aaff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    margin: 0 5px;
+  }
+  .controlButton:hover {
+    background: #0088cc;
+  }
+  .shootButton {
+    margin-left: 20px;
+    width: 50px;
+    height: 50px;
+    background-color: #00aaff;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.3s;
+    display: inline-block;
+    line-height: 50px;
+    vertical-align: middle;
+    font-size: 20px;
+    color: white;
+  }
+  .shootButton:hover {
+    background: #0088cc;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="controls">
+    <div class="rulesCard">
+      移动：←→ 按钮或键盘左右键。<br>
+      射击：A按钮或键盘 A 键。
+    </div>
+    <div class="header">
+      <div class="timer">时间: 0s</div>
+      <div class="score">得分: 0</div>
+    </div>
+    <select id="speedSelect" class="speedSelect">
+      <option value="slow">慢</option>
+      <option value="medium">中</option>
+      <option value="fast">快</option>
+    </select>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div class="controlButtons">
+      <button class="controlButton" onclick="moveLeft()">←</button>
+      <button class="controlButton" onclick="moveRight()">→</button>
+      <button class="shootButton" onclick="shoot()">A</button>
+    </div>
+    <button class="startButton" onclick="startGame()">开始游戏</button>
+    <div class="gameOver" id="gameOver">GAME OVER</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gameRunning = false;
+let player = { x: canvas.width / 2, y: canvas.height - 50, emoji: '✈️' };
+let obstacles = [];
+let bullets = [];
+let startTime;
+let score = 0;
+let obstacleSpeed = 2; // 默认障碍物速度
+const moveSpeed = 10;
+const bulletSpeed = 5;
+let gameLoop; // 将 gameLoop 定义为全局变量
+
+function drawPlayer() {
+  ctx.save();
+  ctx.translate(player.x, player.y + 15);
+  ctx.rotate(-Math.PI / 4); // 逆时针旋转45度
+  ctx.font = '30px Arial';
+  ctx.fillText(player.emoji, -15, 0);
+  ctx.restore();
+}
+
+function createObstacle() {
+  const obstacle = {
+    x: Math.random() * (canvas.width - 50),
+    y: -50,
+    speed: obstacleSpeed + Math.random() * 2,
+    emoji: getEmoji()
+  };
+  obstacles.push(obstacle);
+}
+
+function getEmoji() {
+  const emojis = ['😊', '😎', '🥳', '🤓', '🤔', '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '😬', '😰', '😱', '😳', '😵', '😡', '😠', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓'];
+  return emojis[Math.floor(Math.random() * emojis.length)];
+}
+
+function drawObstacles() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  obstacles.forEach(obstacle => {
+    ctx.font = '30px Arial';
+    ctx.fillText(obstacle.emoji, obstacle.x, obstacle.y + 30);
+    obstacle.y += obstacle.speed;
+  });
+
+  // 检查是否有障碍物到达底部
+  if (obstacles.some(obstacle => obstacle.y > canvas.height)) {
+    gameRunning = false;
+    document.getElementById('gameOver').style.display = 'block';
+    clearInterval(gameLoop);
+  }
+
+  // 移除已经移出屏幕的障碍物
+  obstacles = obstacles.filter(o => o.y < canvas.height);
+}
+
+function checkCollision() {
+  for (let i = 0; i < obstacles.length; i++) {
+    let obs = obstacles[i];
+    if (Math.abs(player.x - obs.x) < 30 && Math.abs(player.y - obs.y) < 30) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function updateTimer() {
+  const currentTime = (Date.now() - startTime) / 1000;
+  document.querySelector('.timer').innerText = `时间: ${Math.floor(currentTime)}s`;
+}
+
+function updateScore(points) {
+  score += points;
+  document.querySelector('.score').innerText = `得分: ${score}`;
+}
+
+function startGame() {
+  gameRunning = true;
+  startTime = Date.now();
+  score = 0;
+  player.x = canvas.width / 2;
+  obstacles = [];
+  bullets = [];
+  document.querySelector('.timer').innerText = `时间: 0s`;
+  document.querySelector('.score').innerText = `得分: 0`;
+  document.getElementById('gameOver').style.display = 'none';
+
+  const speedSelect = document.getElementById('speedSelect');
+  switch (speedSelect.value) {
+    case 'slow':
+      obstacleSpeed = 2;
+      break;
+    case 'medium':
+      obstacleSpeed = 4;
+      break;
+    case 'fast':
+      obstacleSpeed = 6;
+      break;
+    default:
+      obstacleSpeed = 2;
+  }
+
+  gameLoop = setInterval(() => { // 将 gameLoop 赋值给全局变量
+    if (!gameRunning) {
+      clearInterval(gameLoop);
+      return;
+    }
+
+    updateTimer();
+
+    if (checkCollision()) {
+      gameRunning = false;
+      document.getElementById('gameOver').style.display = 'block';
+      clearInterval(gameLoop);
+      return;
+    }
+
+    drawObstacles(); // 先绘制障碍物
+    drawBullets(); // 绘制子弹
+    drawPlayer(); // 再绘制飞机，确保飞机在障碍物之上
+    if (Math.random() > 0.95) createObstacle();
+  }, 100);
+
+  document.addEventListener('keydown', handleKeyPress);
+}
+
+function handleKeyPress(event) {
+  if (event.key === 'ArrowLeft') {
+    moveLeft();
+  } else if (event.key === 'ArrowRight') {
+    moveRight();
+  } else if (event.key === 'A' || event.key === 'a') {
+    shoot();
+  }
+}
+
+function moveLeft() {
+  if (gameRunning && player.x > 30) {
+    player.x -= moveSpeed;
+  }
+}
+
+function moveRight() {
+  if (gameRunning && player.x < canvas.width - 30) {
+    player.x += moveSpeed;
+  }
+}
+
+function shoot() {
+  if (gameRunning) {
+    const bullet = {
+      x: player.x,
+      y: player.y - 30,
+      speed: bulletSpeed
+    };
+    bullets.push(bullet);
+  }
+}
+
+function drawBullets() {
+  bullets.forEach((bullet, index) => {
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'blue';
+    ctx.fill();
+    bullet.y -= bullet.speed;
+  });
+  bullets = bullets.filter(bullet => bullet.y > 0);
+
+  // 检查子弹是否击中障碍物
+  bullets.forEach((bullet, bIndex) => {
+    for (let i = 0; i < obstacles.length; i++) {
+      let obs = obstacles[i];
+      if (Math.abs(bullet.x - obs.x) < 30 && Math.abs(bullet.y - obs.y) < 30) {
+        if (obs.emoji === '🤡') {
+          updateScore(5); // 击中小丑得5分
+        } else {
+          updateScore(1); // 击中其他表情得1分
+        }
+        obstacles.splice(i, 1); // 移除被击中的障碍物
+        bullets.splice(bIndex, 1); // 移除击中障碍物的子弹
+        break;
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
